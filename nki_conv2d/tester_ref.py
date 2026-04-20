@@ -4,14 +4,15 @@ import os
 import itertools
 
 import numpy as np
-from conv2d_ref import conv2d_torch, conv2d_numpy, conv2d_numpy_matmul, conv2d_numpy_matmul_tiled
+from conv2d_ref import conv2d_torch, conv2d_numpy, conv2d_numpy_nki
 from utils import params_name, dtype_tol
 
 def test_conv2d_ref_kernels(ref_kernel, kernels, benchmark=False):
 
     # Adjust the input parameters as needed, or add more combinations to test
     # input_channels, output_channels, filter_size, batch_size, image_dims, dtype
-    parameter_combinations = [(256, 256, 3, 4, (16, 16), np.float32)]
+    # Note that float16 tests perform much slower on CPUs even though they would be faster on accelerators.
+    parameter_combinations = [(128, 256, 3, 4, (34, 34), np.float32)]
 
     for params in parameter_combinations:
         input_channels, output_channels, filter_size, batch_size, image_dims, dtype = params
@@ -36,12 +37,12 @@ def test_conv2d_ref_kernels(ref_kernel, kernels, benchmark=False):
 
             if benchmark:
                 start_time = time.time()
-                num_iterations = 10
+                num_iterations = 3
                 for _ in range(num_iterations):
                     result = kernel(*args)
                 end_time = time.time()
                 avg_time = (end_time - start_time) / num_iterations
-                print(f"Finished! Average execution time: {avg_time*1e3:.3f} ms")
+                print(f"Finished! Average execution time: {int(avg_time*1e6)} us")
             else:
                 result = kernel(*args)
                 print("Finished!")
@@ -99,9 +100,9 @@ if __name__ == "__main__":
 
     # Kernels to verify against ref_kernel
     test_kernels = [
-        conv2d_numpy,
-        conv2d_numpy_matmul,
-        conv2d_numpy_matmul_tiled
+        # conv2d_torch, # Uncomment to benchmark and get the speed of the torch kernel
+        conv2d_numpy,   # Comment this out to just focus on the nki reference kernel
+        conv2d_numpy_nki
     ]
 
     test_conv2d_ref_kernels(ref_kernel, test_kernels, benchmark=args.benchmark)

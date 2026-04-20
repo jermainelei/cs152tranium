@@ -57,104 +57,73 @@ def conv2d_numpy(X, W, bias):
 
     return out
 
+
 """
-Performs a 2D convolution operation using matrix multiplication in NumPy.
-This is not fully optimized, but it shows how the convolution can be accomplished
-via reshaping and matmuls.
+Performs a 2D convolution operation using a naive NumPy-based implementation.
+Args:
+    X (array-like): Input tensor of shape (batch_size, in_channels, input_height, input_width).
+    W (array-like): Weight tensor of shape (out_channels, in_channels, filter_height, filter_width).
+    bias (array-like): Bias tensor of shape (out_channels).
+Returns:
+    np.ndarray: The result of the 2D convolution operation, with shape 
+                (batch_size, out_channels, output_height, output_width).
+Note:
+    This version mirrors a potential mapping to a NKI kernel, with tiling and matmul operations.
 """
-def conv2d_numpy_matmul(X, W, bias):
+def conv2d_numpy_nki(X, W, bias):
     batch_size, in_channels, input_height, input_width = X.shape
     out_channels, in_channels_, filter_height, filter_width = W.shape
+    out_channels_ = bias.shape[0]
 
-    H_out = input_height - filter_height + 1
-    W_out = input_width - filter_width + 1
+    out_height = input_height - filter_height + 1
+    out_width = input_width - filter_width + 1
 
-    # Reshape the filters and images
+    # Initialize output array
+    X_out = np.zeros((batch_size, out_channels, out_height, out_width), dtype=X.dtype)
 
-    X_reshaped = np.swapaxes(X, 0, 1)
-    # X: (in_channels, batch_size, input_height, input_width)
-    
-    W_reshaped = np.swapaxes(W, 0, 1)
-    W_reshaped = W_reshaped.reshape( in_channels, out_channels, filter_height * filter_width)
-    W_reshaped = np.swapaxes(W_reshaped, 1, 2)
-    # W: (in_channels, filter_size = filter_height * filter_width, out_channels)
+    # Tiling dimensions
+    c_in_tile = 128   # Matches nl.tile_size.pmax
+    c_out_tile = 128  # Matches nl.tile_size.gemm_stationary_fmax
+    n_tiles_c_in = in_channels // c_in_tile
+    n_tiles_c_out = out_channels // c_out_tile
 
-    out = np.zeros((batch_size, out_channels, H_out, W_out)) 
-    # Perform the convolution using matrix multiplication
-    for i_c in range(in_channels):
-        for i in range(H_out):
-            for j in range(W_out):
-                # Extract the relevant patch from the input image
-                x_ij = X_reshaped[i_c, :, i : i + filter_height, j : j + filter_width]
-                # Reshape the patch to match the filter shape
-                x_ij = x_ij.reshape(batch_size, filter_height * filter_width)
+    # Load in the weights, arranged for matmuls
+    # Shape: (c_in_tile, c_out_tile, n_tiles_c_out, n_tiles_c_in, filter_height, filter_width)
+    w = np.zeros((c_in_tile, c_out_tile, n_tiles_c_out, n_tiles_c_in, filter_height, filter_width), dtype=W.dtype)
+    for c_out_tile_idx in range(n_tiles_c_out):
+        for c_in_tile_idx in range(n_tiles_c_in):
+            for i in range(filter_height):
+                for j in range(filter_width):
+                    # Load a weight tile of shape [c_out_tile, c_in_tile]
+                    w_tile = W[c_out_tile_idx * c_out_tile: (c_out_tile_idx + 1) * c_out_tile,
+                               c_in_tile_idx * c_in_tile: (c_in_tile_idx + 1) * c_in_tile, i, j]
+                    # Transpose so that IC is the first dimension: [c_in_tile, c_out_tile] <- [c_out_tile, c_in_tile]
+                    w[:, :, c_out_tile_idx, c_in_tile_idx, i, j] = w_tile.T
 
-                w_ij = W_reshaped[i_c]
+    # Process the images one-by-one
+    for img in range(batch_size):
+        # Process each output channel tile
+        for c_out_tile_idx in range(n_tiles_c_out):
+            # Convolve: for each output row, convolve over the input channel tiles and filter positions
+            for out_row in range(out_height):
+                # Accumulator for output row
+                row_out = np.zeros((c_out_tile, out_width), dtype=np.float32)
+                # Loop over the input channel tiles and filter positions, accumulating the output row
+                for c_in_tile_idx in range(n_tiles_c_in):
+                    for i in range(filter_height):
+                        for j in range(filter_width):
+                            # Select the weight tile for the current input and output channel tiles idx and filter position
+                            w_tile = w[:, :, c_out_tile_idx, c_in_tile_idx, i, j]  # (c_in_tile, c_out_tile)
+                            # Load the input tile for the current input channel tile idx, output row, filter position
+                            x_tile = X[img, c_in_tile_idx * c_in_tile: (c_in_tile_idx + 1) * c_in_tile, i + out_row, j:j + out_width]  # (c_in_tile, out_width)
+                            # Matmul the weight tile and input tile, and accumulate the result in row_out
+                            row_out += w_tile.T @ x_tile
 
-                out_ij = x_ij @ w_ij
-                # out_ij: (batch_size, out_channels)
+                # Load and add the bias to the row_out based on the current output channel tile idx
+                b = bias[c_out_tile_idx * c_out_tile: (c_out_tile_idx + 1) * c_out_tile]
+                output = row_out + b[:, np.newaxis]
 
-                out[:, :, i, j] += out_ij
-    
-    # Add the bias
-    out += bias.reshape(1, out_channels, 1, 1)
+                # Store the output
+                X_out[img, c_out_tile_idx * c_out_tile: (c_out_tile_idx + 1) * c_out_tile, out_row, :] = output
 
-    return out
-
-
-"""
-Performs a 2D convolution operation using matrix multiplication & tiling in NumPy.
-This is not fully optimized, but it shows how the convolution can be accomplished
-via reshaping, matmuls, and tiling.
-"""
-def conv2d_numpy_matmul_tiled(X, W, bias):
-    batch_size, in_channels, input_height, input_width = X.shape
-    out_channels, in_channels_, filter_height, filter_width = W.shape
-
-    H_out = input_height - filter_height + 1
-    W_out = input_width - filter_width + 1
-
-    tile_c = 128
-    n_c_in_tiles = in_channels // tile_c
-    n_c_out_tiles = out_channels // tile_c
-
-    # Reshape the filters and images for tiling and access
-
-    X_reshaped = np.swapaxes(X, 0, 1)
-    X_reshaped = X_reshaped.reshape(n_c_in_tiles, tile_c, batch_size, input_height, input_width)
-    # X: (n_c_in_tiles, tile_c, batch_size, input_height, input_width)
-    
-    W_reshaped = W.reshape(n_c_out_tiles, tile_c, n_c_in_tiles, tile_c, filter_height * filter_width)
-    W_reshaped = np.moveaxis(W_reshaped, [0, 1, 2, 3, 4], [3, 4, 0, 1, 2])
-    # W: (n_c_in_tiles, tile_c, filter_size = filter_height * filter_width, n_c_out_tiles, tile_c)
-
-    out = np.zeros((batch_size, n_c_out_tiles, tile_c, H_out, W_out)) 
-    # Perform the convolution using matrix multiplication
-
-    for c_in_tile_idx in range(n_c_in_tiles):
-        x_tile = X_reshaped[c_in_tile_idx]
-        w_tile = W_reshaped[c_in_tile_idx]
-
-        for i_c in range(tile_c):
-            x_i_c = x_tile[i_c]
-            w_i_c = w_tile[i_c]
-            for i in range(H_out):
-                for j in range(W_out):
-                    x_ij = x_i_c[:, i : i + filter_height, j : j + filter_width]
-                    x_ij = x_ij.reshape(batch_size, filter_height * filter_width)
-
-                    for c_out_tile_idx in range(n_c_out_tiles):
-                        w_ij = w_i_c[:, c_out_tile_idx, :]
-                        w_ij = w_ij.reshape(filter_height * filter_width, tile_c)
-
-                        out_ij = x_ij @ w_ij
-
-                        out[:, c_out_tile_idx, :, i, j] += out_ij
-    
-    # Reshape the output to the desired shape
-    out = out.reshape(batch_size, out_channels, H_out, W_out)
-    
-    # Add the bias
-    out += bias.reshape(1, out_channels, 1, 1)
-
-    return out
+    return X_out

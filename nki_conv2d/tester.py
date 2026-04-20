@@ -50,7 +50,7 @@ def test_correctness_conv2d_kernel(kernel, basic_fleet=False, full_fleet=False, 
 
         args = [X, W, bias]
 
-        print(f"Running correctness test {test_case} -- ", end="", flush=True)
+        print(f"Running correctness test for {test_case}")
         
         st = time.time()
         test_result = kernel(*args)
@@ -68,7 +68,7 @@ def test_correctness_conv2d_kernel(kernel, basic_fleet=False, full_fleet=False, 
         if not np.allclose(ref_results, test_result, rtol=rtol, atol=atol):
             report_data[test_case]['correct'] = False
             correctness_passed = False
-            print(f"Failed, writing to file...")
+            print(f"Failed, writing to file...\n")
 
             file_head = params_name(params)
 
@@ -97,7 +97,7 @@ def test_correctness_conv2d_kernel(kernel, basic_fleet=False, full_fleet=False, 
                         test_file.write("\n")
         else:
             report_data[test_case]['correct'] = True
-            print("Passed!")
+            print("Passed!\n")
 
     if correctness_passed:
         if basic_fleet:
@@ -174,7 +174,7 @@ def test_performance_conv2d_kernel(kernel, basic_fleet=False, full_fleet=False, 
         performance_requirement = test_cases[test_case]
         if exec_time > performance_requirement:
             print(f"Failed :( Executed in {exec_time} μs")
-            print(f"Performance requirement not met: need to be under {performance_requirement} μs")
+            print(f"Performance requirement not met: need to be under {performance_requirement} μs\n")
             report_data[test_case]['met_threshold'] = False
             performance_passed = False
         else:

@@ -35,24 +35,21 @@ dtype_tol = {
 }
 
 basic_test_cases = {
-    "in128_out256_filter3x3_batch4_32x32_float32": 1000,
-    "in128_out256_filter3x3_batch4_256x256_float16": 7000,
-    "in256_out256_filter5x5_batch4_32x32_float32": 5000,
+    "in128_out256_filter3x3_batch4_34x34_float32": 590,
+    "in128_out256_filter3x3_batch4_66x66_float16": 700,
+    "in256_out256_filter5x5_batch4_36x36_float16": 2000,
 }
 
 fleet_test_cases = {
-    "in128_out128_filter3x3_batch16_256x256_float16": 13000,
-    "in128_out128_filter5x5_batch16_32x32_float16": 1000,
-    "in128_out256_filter3x3_batch4_32x32_float32": 1000,
-    "in128_out256_filter3x3_batch4_256x256_float16": 7000,
-    "in128_out256_filter3x3_batch16_32x32_float32": 3000,
-    "in128_out256_filter3x3_batch64_32x32_float16": 8000,
-    "in128_out256_filter5x5_batch4_32x32_float32": 3000,
-    "in128_out256_filter5x5_batch16_32x32_float16": 2000,
-    "in256_out256_filter3x3_batch4_32x32_float32": 3000,
-    "in256_out256_filter3x3_batch16_32x32_float16": 3000,
-    "in256_out256_filter3x3_batch64_32x32_float16": 10000,
-    "in256_out256_filter5x5_batch4_32x32_float32": 5000,
-    "in256_out256_filter5x5_batch16_32x32_float16": 4000,
-    "in256_out256_filter5x5_batch64_32x32_float16": 12000,
+    "in128_out128_filter3x3_batch16_66x66_float16": 1500,
+    "in128_out128_filter5x5_batch16_36x36_float16": 1700,
+    "in128_out256_filter3x3_batch4_34x34_float32": 590,
+    "in128_out256_filter3x3_batch4_66x66_float16": 700,
+    "in128_out256_filter3x3_batch16_34x34_float32": 2000,
+    "in128_out256_filter5x5_batch4_36x36_float32": 1600,
+    "in128_out256_filter5x5_batch16_36x36_float16": 3100,
+    "in256_out256_filter3x3_batch4_34x34_float32": 1200,
+    "in256_out256_filter3x3_batch16_34x34_float16": 2500,
+    "in256_out256_filter5x5_batch4_36x36_float16": 2000,
+    "in256_out256_filter5x5_batch16_36x36_float16": 8000,
 }

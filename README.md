@@ -412,7 +412,7 @@ python tester.py --simulate --basic
 Once you know your kernel works functionally, you can move on to the [next step](#step-2-program-and-optimize-conv2d) to benchmark your kernel to test its speed and performance.
 
 #### Brainstorm using NumPy
-If you want to brainstorm your implementation on your local computer, you can first create a reference implementation on NumPy by adding a function to `conv2d_ref.py` and the list of kernels in `ref_tester.py`. Feel free to modify the `test_kernels` list in `ref_tester.py` to only benchmark the kernels you are modifying or developing. 
+If you want to brainstorm your implementation on your local computer, you can first create/modify the reference implementation on NumPy in the `conv2d_numpy_nki` function in `conv2d_ref.py`. Feel free to modify the `test_kernels` list in `tester_ref.py` to only benchmark the kernels you are modifying or developing. 
 
 By brainstorming on NumPy, you can quickly confirm that your approach is functionally correct (i.e. correct outputs), before using up your credits and time on the Tranium instance. However, we recommend you spend most of your time developing directly on NKI to make sure your mapping is actually compatible/achievable with the NKI APIs and NeuronCore.
 
@@ -454,12 +454,12 @@ Once you have confirmed functional accuracy and performance for the basic tests,
 
 Start by simulating various test cases to ensure your implementation is robust to multiple input parameters. You can simulate specific test cases with the following command. View `utils.py` for the test case options.
 ```bash
-python tester.py --simulate --test-case in128_out256_filter5x5_batch16_32x32_float16
+python tester.py --simulate --test-case in128_out256_filter3x3_batch4_34x34_float32
 ```
 
 You can also benchmark specific test cases with the following command.
 ```bash
-python tester.py --test-case in128_out256_filter5x5_batch16_32x32_float16
+python tester.py --test-case in128_out256_filter3x3_batch4_34x34_float32
 ```
 
 Finally, run the full fleet of tests with the following command. Add the `--record` flag to record your performance results. Note that running the full fleet of tests may take a few minutes.
@@ -471,7 +471,14 @@ Once you are done optimizing, you may submit to Gradescope. See the [Submission 
 
 > [!IMPORTANT]
 >
-> The competition winners will be decided based on the best performance on the full fleet of tests, so once you meet the minimum requirements, we encourage you to try and optimize your kernel even further. We may rerun kernels on a larger fleet of tests to decide the competition winners, so make sure that your kernel can handle various ranges input parameters.
+> The competition winners will be decided based on the best performance on the full fleet of tests, so once you meet the minimum requirements, we encourage you to try and optimize your kernel even further. We may rerun kernels on a larger fleet of tests or adjust the thresholds to decide the competition winners, so make sure that your kernel can handle various ranges of input parameters.
+
+#### Suggested Optimizations
+Some things you may want to look into for optimization:
+1. Can we group together loads or stores of the image and output arrays?
+2. Could another mapping be more optimal than the skeleton code?
+3. If you check the profile, you may notice "Spill" DMA transactions. What might this indicate about your kernel and its usage of the memory?
+
 
 #### Debugging and Optimizing Tips using Neuron Profile
 If you are having trouble meeting the performance requirements, make sure to carefully read the architecture documentation linked in the above sections, especially in the [Tranium Overview](#tranium-overview) section. You will likely see the most improvements in your performance by simply ensuring your kernel maps properly to the hardware parameters and architecture details.
@@ -480,8 +487,6 @@ Nevertheless, there is also a way to get more detailed performance metrics of th
 
 <p align="center">
   <img width="600" src="./img/neuron_profile_timeline.png">
-  <br>
-  <a href="https://awsdocs-neuron.readthedocs-hosted.com/en/latest/tools/neuron-sys-tools/neuron-profile-user-guide.html">Source</a>
 </p>
 
 You can generate the profile data on the kernels by adding the `--profile` flag to the `tester.py` commands. Note, you can't profile the kernels with `--simulate` active.
@@ -489,7 +494,7 @@ You can generate the profile data on the kernels by adding the `--profile` flag 
 Read the instructions in [NEURON_PROFILE.md](/NEURON_PROFILE.md) for more information on viewing and interpreting the profile data.
 
 ### Step 3: Submission
-Once you have successfully completed the steps above, you are finished with the Open-Ended portion! Make sure your changes have been pushed to your repository, then go to the Open-Ended assignment on [Gradescope](https://www.gradescope.com/courses/959486), and select your GitHub repository to submit your code. Your submission will automatically be added to the leaderboard.
+Once you have successfully completed the steps above, you are finished with the Open-Ended portion! Make sure your changes have been pushed to your repository, then go to the Open-Ended assignment on Gradescope, and select your GitHub repository to submit your code. Your submission will automatically be added to the leaderboard.
 
 ## Final Steps
 
