@@ -19,7 +19,7 @@ There are two sections of the lab, the Directed and Open-Ended Portions. The Dir
 ### Graded Items:
 All graded items are to be submitted through Gradescope. The Directed and Open-Ended portions of the lab must both be completed individually, unless otherwise approved by course staff. The Directed portion is worth 30% of your lab grade, and the Open-Ended portion is worth 70% of your lab grade. 
 
-The Directed Portion is due **Friday, April 24 at 11:59PM**. The Open-Ended portion is due **Friday, May 1 at 11:59PM**. The competition will run for a few days after the graded portions are due, to allow for students to explore further optimizations. The competition will close on **Tuesday, May 5 at 11:59PM**.
+The Directed Portion is due **Sunday, April 26 at 11:59PM**. The Open-Ended portion is due **Friday, May 1 at 11:59PM**. The competition will run for a few days after the graded portions are due, to allow for students to explore further optimizations. The competition will close on **Tuesday, May 5 at 11:59PM**.
 
 Graded Items:
 - Code for Directed Portion: `nki_ffnn/kernels.py`
