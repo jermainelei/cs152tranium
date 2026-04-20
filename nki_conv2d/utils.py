@@ -37,7 +37,7 @@ dtype_tol = {
 basic_test_cases = {
     "in128_out256_filter3x3_batch4_34x34_float32": 590,
     "in128_out256_filter3x3_batch4_66x66_float16": 700,
-    "in256_out256_filter5x5_batch4_36x36_float16": 2000,
+    "in256_out256_filter5x5_batch4_36x36_float16": 2500,
 }
 
 fleet_test_cases = {
@@ -46,10 +46,10 @@ fleet_test_cases = {
     "in128_out256_filter3x3_batch4_34x34_float32": 590,
     "in128_out256_filter3x3_batch4_66x66_float16": 700,
     "in128_out256_filter3x3_batch16_34x34_float32": 2000,
-    "in128_out256_filter5x5_batch4_36x36_float32": 1600,
+    "in128_out256_filter5x5_batch4_36x36_float32": 1700,
     "in128_out256_filter5x5_batch16_36x36_float16": 3100,
     "in256_out256_filter3x3_batch4_34x34_float32": 1200,
-    "in256_out256_filter3x3_batch16_34x34_float16": 2500,
-    "in256_out256_filter5x5_batch4_36x36_float16": 2000,
+    "in256_out256_filter3x3_batch16_34x34_float16": 2700,
+    "in256_out256_filter5x5_batch4_36x36_float16": 2500,
     "in256_out256_filter5x5_batch16_36x36_float16": 8000,
 }

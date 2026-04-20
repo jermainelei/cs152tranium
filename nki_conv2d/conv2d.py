@@ -35,6 +35,11 @@ def conv2d_nki(X, W, bias):
     out_height = input_height - filter_height + 1
     out_width = input_width - filter_width + 1
 
+    assert filter_height == filter_width, "Filter height must be equal to filter width"
+    assert in_channels % 128 == 0, "Input channels must be divisible by 128"
+    assert out_channels % 128 == 0, "Output channels must be divisible by 128"
+    assert out_width * out_height % 512 == 0, "Output width * output height must be divisible by 512"
+
     # Initialize output array
     X_out = nl.ndarray(
         shape=(batch_size, out_channels, out_height, out_width),

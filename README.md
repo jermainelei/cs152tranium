@@ -380,12 +380,11 @@ All of the files needed for this part are located in `lab6/nki_conv2d`.
 To start, take a look at `conv2d_ref.py` for the PyTorch and NumPy implementations for the 2D Convolution kernels:
 - `conv2d_torch`: Built-in PyTorch implementation for [2D Convolution](https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html). **Used as the golden model.**
 - `conv2d_numpy`: A naive implementation using NumPy, performing the basic filter application and bias addition. **Intended as a naive functional reference model.**
-- `conv2d_numpy_matmul`: A more optimized implementation using transposing, reshaping, and matrix multiplication
-- `conv2d_numpy_matmul_tiled`: Similar to the `conv2d_numpy_matmul` implementation but with tiling
+- `conv2d_numpy_nki`: A potential mapping of conv2d to matmuls, in a style similar to a NKI kernel. Can be used to inspire/guide an initial implementation of the NKI kernel.
 
 Both `conv2d_torch` and `conv2d_numpy` are functionally correct models. The PyTorch implementation is optimized for CPU/GPU -- we are providing it to enable quick checks against your candidate implementations. The NumPy implementation is demonstrating the equivalent mathematical operation described in the [Overview of 2D Convolution](#Overview-of-2D-Convolution) section, but in a python program. Think about the operations performed -- are these the best operations to do on the engines of a NeuronCore?
 
-The `conv2d_numpy_matmul` and `conv2d_numpy_matmul_tiled` are simply meant to serve as an example of how to translate the `conv2d` operations into matrix multiplications, but this is only one potential mapping. Feel free to reshape, tile, and operate on the data however you want, as long as you match the output of the reference model.
+The `conv2d_numpy_nki` kernel is an example of how to translate the `conv2d` operations into matrix multiplications, but this is only one potential mapping. Feel free to reshape, tile, and operate on the data however you want, as long as you match the output of the reference model.
 
 To run the reference kernels and verify correctness, run the following command.
 ```bash
@@ -404,6 +403,8 @@ When mapping an algorithm or computation to a target hardware, here are some fac
 
 #### Brainstorm using NKI Simulate
 Once you have an idea of how you want to implement your kernel, you can program it in the `conv2d_nki` function in `conv2d.py`. Then, you can quickly test the kernel for functional accuracy using `nki.simulate_kernel`.
+
+Note, `conv2d.py` contains a lot of skeleton code that is meant to guide you to an initial NKI kernel implementation of conv2d, mirroring `conv2d_numpy_nki` in `conv2d_ref.py` and the mapping explained in lecture. You are welcome to implement this version to start, but you are not obligated to keep this mapping. In fact, you will need to optimize this further to meet the minimum performance requirements, and you may need to restructure/remap the kernel completely to push performance further. We encourage you to explain a variety of different implementations.
 
 Run the following command to simulate your kernel and confirm your implementation works functionally on basic tests:
 ```bash

@@ -59,7 +59,7 @@ def conv2d_numpy(X, W, bias):
 
 
 """
-Performs a 2D convolution operation using a naive NumPy-based implementation.
+Performs a 2D convolution operation using a NumPy-based implementation mapped to matrix multiplications.
 Args:
     X (array-like): Input tensor of shape (batch_size, in_channels, input_height, input_width).
     W (array-like): Weight tensor of shape (out_channels, in_channels, filter_height, filter_width).
