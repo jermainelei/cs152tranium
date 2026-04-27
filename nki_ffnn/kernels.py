@@ -64,31 +64,32 @@ def nki_bias_add_act(A, b, act='relu'):
 
     row_max_buf = nl.ndarray((BATCH_SIZE, 1), dtype=A.dtype, buffer=nl.hbm)
     row_sum_buf = nl.ndarray((BATCH_SIZE, 1), dtype=A.dtype, buffer=nl.hbm)
+    num_col_tiles = HIDDEN_SIZE // nl.tile_size.pmax
 
     for row_idx in nl.affine_range(BATCH_SIZE // nl.tile_size.pmax):
       row_offset = row_idx * nl.tile_size.pmax
-      for col_idx in nl.affine_range(HIDDEN_SIZE // nl.tile_size.pmax):
+      first_tile = nl.load(result[row_offset:row_offset + nl.tile_size.pmax, 0:nl.tile_size.pmax])
+      row_max = nl.max(first_tile, axis=[1], keepdims=True)
+      for col_idx in nl.sequential_range(1, num_col_tiles):
         col_offset = col_idx * nl.tile_size.pmax
         tile = nl.load(result[row_offset:row_offset + nl.tile_size.pmax, col_offset:col_offset + nl.tile_size.pmax])
         tile_max = nl.max(tile, axis=[1], keepdims=True)
-        if col_idx == 0:
-          row_max = tile_max
-        else:
-          row_max = nl.maximum(row_max, tile_max)
+        row_max = nl.maximum(row_max, tile_max)
       nl.store(row_max_buf[row_offset:row_offset + nl.tile_size.pmax, 0:1], row_max)
 
     for row_idx in nl.affine_range(BATCH_SIZE // nl.tile_size.pmax):
       row_offset = row_idx * nl.tile_size.pmax
       row_max = nl.load(row_max_buf[row_offset:row_offset + nl.tile_size.pmax, 0:1])
-      for col_idx in nl.affine_range(HIDDEN_SIZE // nl.tile_size.pmax):
+      first_tile = nl.load(result[row_offset:row_offset + nl.tile_size.pmax, 0:nl.tile_size.pmax])
+      first_exp_tile = nl.exp(nl.subtract(first_tile, row_max))
+      row_sum = nl.sum(first_exp_tile, axis=[1], keepdims=True)
+      nl.store(result[row_offset:row_offset + nl.tile_size.pmax, 0:nl.tile_size.pmax], first_exp_tile)
+      for col_idx in nl.sequential_range(1, num_col_tiles):
         col_offset = col_idx * nl.tile_size.pmax
         tile = nl.load(result[row_offset:row_offset + nl.tile_size.pmax, col_offset:col_offset + nl.tile_size.pmax])
         exp_tile = nl.exp(nl.subtract(tile, row_max))
         tile_sum = nl.sum(exp_tile, axis=[1], keepdims=True)
-        if col_idx == 0:
-          row_sum = tile_sum
-        else:
-          row_sum = nl.add(row_sum, tile_sum)
+        row_sum = nl.add(row_sum, tile_sum)
         nl.store(result[row_offset:row_offset + nl.tile_size.pmax, col_offset:col_offset + nl.tile_size.pmax], exp_tile)
       nl.store(row_sum_buf[row_offset:row_offset + nl.tile_size.pmax, 0:1], row_sum)
 
