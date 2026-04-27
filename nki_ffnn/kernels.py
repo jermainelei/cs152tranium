@@ -47,75 +47,60 @@ def nki_bias_add_act(A, b, act='relu'):
 
     # Create an output tensor
     result = nl.ndarray((BATCH_SIZE, HIDDEN_SIZE), dtype=A.dtype, buffer=nl.hbm)
-    # YOUR CODE HERE
-    for col_idx in nl.affine_range(A.shape[1] // nl.tile_size.pmax):
+
+    for col_idx in nl.affine_range(HIDDEN_SIZE // nl.tile_size.pmax):
       col_offset = col_idx * nl.tile_size.pmax
-      bias = nl.load(b[0:1, col_offset:col_offset + nl.tile_size.pmax])
-      for row_idx in nl.affine_range(A.shape[0] // 127):
-        row_offset = row_idx * 127
-        tile = nl.load(A[row_offset:row_offset + 128, col_offset:col_offset + nl.tile_size.pmax])
-        tile = nl.add(tile, bias)
+      bias_tile = nl.load(b[0:1, col_offset:col_offset + nl.tile_size.pmax])
+      for row_idx in nl.affine_range(BATCH_SIZE // nl.tile_size.pmax):
+        row_offset = row_idx * nl.tile_size.pmax
+        a_tile = nl.load(A[row_offset:row_offset + nl.tile_size.pmax, col_offset:col_offset + nl.tile_size.pmax])
+        out_tile = nl.add(a_tile, bias_tile)
         if act == 'relu':
-          tile = nl.relu(tile)
-        nl.store(result[row_offset:row_offset + 128, col_offset:col_offset + nl.tile_size.pmax], tile)
-    if A.shape[0] % 127 != 0:
-      for col_idx in nl.affine_range(A.shape[1] // nl.tile_size.pmax):
-          col_offset = col_idx * nl.tile_size.pmax
-          tile = nl.load(A[A.shape[0]-A.shape[0] % 127:A.shape[0], col_offset:col_offset + nl.tile_size.pmax])
-          bias = nl.load(b[0:1, col_offset:col_offset + nl.tile_size.pmax])
-          tile = nl.add(tile, bias)
-          if act == 'relu':
-            tile = nl.relu(tile)
-          nl.store(result[A.shape[0]-A.shape[0] % 127:A.shape[0], col_offset:col_offset + nl.tile_size.pmax], tile)
+          out_tile = nl.relu(out_tile)
+        nl.store(result[row_offset:row_offset + nl.tile_size.pmax, col_offset:col_offset + nl.tile_size.pmax], out_tile)
+
     if act == 'relu':
       return result
-    # softmax part
-    running_buffer = nl.ndarray((1, A.shape[0]), dtype=A.dtype, buffer=nl.hbm)
-    nl.store(running_buffer, value = 0.0)
-    for row_idx in nl.affine_range(A.shape[0] // 128):
-      row_offset = row_idx * 128
-      rb = nl.load(running_buffer[0, row_offset:row_offset + 128])
-      for col_idx in nl.affine_range(A.shape[1] // (nl.tile_size.pmax - 2)):
-        col_offset = col_idx * (nl.tile_size.pmax - 2)
-        tile = nl.load(A[row_offset:row_offset + 128, col_offset:col_offset + nl.tile_size.pmax - 2])
-        cur_max = nl.max(tile, [1])
-        rb = nl.maximum(cur_max, rb)
-        if col_idx == A.shape[1] // (nl.tile_size.pmax - 2) - 1:
-          nl.store(running_buffer[0, row_offset:row_offset + 128], rb)
-    for row_idx in nl.affine_range(A.shape[0] // 128):
-      row_offset = row_idx * 128
-      rb = nl.load(running_buffer[0, row_offset:row_offset + 128])
-      for col_idx in nl.affine_range(A.shape[1] // (nl.tile_size.pmax - 3)):
-        col_offset = col_idx * (nl.tile_size.pmax - 3)
-        row_offset = row_idx * 128
-        tile = nl.load(A[row_offset:row_offset + 128, col_offset:col_offset + nl.tile_size.pmax - 3])
-        tile = nl.subtract(tile, rb)
-        tile = nl.exp(tile)
+
+    row_max_buf = nl.ndarray((BATCH_SIZE, 1), dtype=A.dtype, buffer=nl.hbm)
+    row_sum_buf = nl.ndarray((BATCH_SIZE, 1), dtype=A.dtype, buffer=nl.hbm)
+
+    for row_idx in nl.affine_range(BATCH_SIZE // nl.tile_size.pmax):
+      row_offset = row_idx * nl.tile_size.pmax
+      for col_idx in nl.affine_range(HIDDEN_SIZE // nl.tile_size.pmax):
+        col_offset = col_idx * nl.tile_size.pmax
+        tile = nl.load(result[row_offset:row_offset + nl.tile_size.pmax, col_offset:col_offset + nl.tile_size.pmax])
+        tile_max = nl.max(tile, axis=[1], keepdims=True)
         if col_idx == 0:
-          running_sum = nl.sum(tile, [1])
+          row_max = tile_max
         else:
-          cur_sum = nl.sum(tile, [1])
-          running_sum = nl.add(cur_sum, running_sum)
-        nl.store(result[row_offset:row_offset + 128, col_offset:col_offset + nl.tile_size.pmax - 3], tile)
-        if col_idx == A.shape[1] // (nl.tile_size.pmax - 3) - 1:
-          nl.store(running_buffer[0, row_offset:row_offset + 128], running_sum)
-    for row_idx in nl.affine_range(A.shape[0] // 128):
-      row_offset = row_idx * 128
-      rb = nl.load(running_buffer[0, row_offset:row_offset + 128])
-      for col_idx in nl.affine_range(A.shape[1] // (nl.tile_size.pmax - 2)):
-        col_offset = col_idx * (nl.tile_size.pmax - 2)
-        row_offset = row_idx * 128
-        tile = nl.load(A[row_offset:row_offset + 128, col_offset:col_offset + nl.tile_size.pmax - 2])
-        tile = nl.divide(tile, rb)
-        nl.store(result[row_offset:row_offset + 128, col_offset:col_offset + nl.tile_size.pmax - 2], tile) 
-    return result   
-    # if A.shape[0] % 127 != 0:
-    #   for col_idx in nl.affine_range(A.shape[1] // nl.tile_size.pmax):
-    #       col_offset = col_idx * nl.tile_size.pmax
-    #       tile = nl.load(A[A.shape[0]-A.shape[0] % 127:A.shape[0], col_offset:col_offset + nl.tile_size.pmax])
-    #       bias = nl.load(b[0:1, col_offset:col_offset + nl.tile_size.pmax])
-    #       tile = nl.add(tile, bias)
-    #       nl.store(result[A.shape[0]-A.shape[0] % 127:A.shape[0], col_offset:col_offset + nl.tile_size.pmax], tile)
+          row_max = nl.maximum(row_max, tile_max)
+      nl.store(row_max_buf[row_offset:row_offset + nl.tile_size.pmax, 0:1], row_max)
+
+    for row_idx in nl.affine_range(BATCH_SIZE // nl.tile_size.pmax):
+      row_offset = row_idx * nl.tile_size.pmax
+      row_max = nl.load(row_max_buf[row_offset:row_offset + nl.tile_size.pmax, 0:1])
+      for col_idx in nl.affine_range(HIDDEN_SIZE // nl.tile_size.pmax):
+        col_offset = col_idx * nl.tile_size.pmax
+        tile = nl.load(result[row_offset:row_offset + nl.tile_size.pmax, col_offset:col_offset + nl.tile_size.pmax])
+        exp_tile = nl.exp(nl.subtract(tile, row_max))
+        tile_sum = nl.sum(exp_tile, axis=[1], keepdims=True)
+        if col_idx == 0:
+          row_sum = tile_sum
+        else:
+          row_sum = nl.add(row_sum, tile_sum)
+        nl.store(result[row_offset:row_offset + nl.tile_size.pmax, col_offset:col_offset + nl.tile_size.pmax], exp_tile)
+      nl.store(row_sum_buf[row_offset:row_offset + nl.tile_size.pmax, 0:1], row_sum)
+
+    for row_idx in nl.affine_range(BATCH_SIZE // nl.tile_size.pmax):
+      row_offset = row_idx * nl.tile_size.pmax
+      row_sum = nl.load(row_sum_buf[row_offset:row_offset + nl.tile_size.pmax, 0:1])
+      for col_idx in nl.affine_range(HIDDEN_SIZE // nl.tile_size.pmax):
+        col_offset = col_idx * nl.tile_size.pmax
+        tile = nl.load(result[row_offset:row_offset + nl.tile_size.pmax, col_offset:col_offset + nl.tile_size.pmax])
+        probs_tile = nl.divide(tile, row_sum)
+        nl.store(result[row_offset:row_offset + nl.tile_size.pmax, col_offset:col_offset + nl.tile_size.pmax], probs_tile)
+
     return result
 
 @nki.jit
@@ -154,10 +139,14 @@ def nki_forward(
     raise ValueError(f"Unsupported matmul kernel: {matmul_kernel}")
 
   # Layer 1
-  # YOUR CODE HERE  
+  XT = nki_transpose(X)
+  z1 = nki_matmul(XT, W1)
+  a1 = nki_bias_add_act(z1, b1, act='relu')
 
   # Layer 2 (output)
-  # YOUR CODE HERE
+  a1T = nki_transpose(a1)
+  z2 = nki_matmul(a1T, W2)
+  probs = nki_bias_add_act(z2, b2, act='softmax')
 
   return probs
 
@@ -189,10 +178,20 @@ def nki_predict(
   Returns:
       predictions: a 1D tensor of shape [BATCH_SIZE] with the predicted class for each input
   """
-  probs = 3# YOUR CODE HERE
+  probs = nki_forward(X, W1, b1, W2, b2, matmul_kernel=matmul_kernel)
   BATCH_SIZE, OUTPUT_SIZE = probs.shape
   predictions = nl.ndarray((BATCH_SIZE,), dtype=np.int32, buffer=nl.hbm)
 
-  # YOUR CODE HERE
+  nl.tile_size.pmax = nl.tile_size.pmax
+  assert BATCH_SIZE % nl.tile_size.pmax == 0, f"{BATCH_SIZE} must be divisible by {nl.tile_size.pmax}"
+  assert 8 <= OUTPUT_SIZE <= 16384, "output size must be in [8, 16384] for nisa.max8"
+
+  for row_idx in nl.affine_range(BATCH_SIZE // nl.tile_size.pmax):
+    row_offset = row_idx * nl.tile_size.pmax
+    probs_tile = nl.load(probs[row_offset:row_offset + nl.tile_size.pmax, 0:OUTPUT_SIZE])
+    max_vals = nisa.max8(src=probs_tile)
+    max_indices = nisa.nc_find_index8(data=probs_tile, vals=max_vals)
+    argmax = nl.copy(max_indices[0:nl.tile_size.pmax, 0], dtype=np.int32)
+    nl.store(predictions[row_offset:row_offset + nl.tile_size.pmax], argmax)
 
   return predictions
