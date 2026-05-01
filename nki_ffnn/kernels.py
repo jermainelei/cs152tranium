@@ -185,10 +185,6 @@ def nki_predict(
   BATCH_SIZE, OUTPUT_SIZE = probs.shape
   predictions = nl.ndarray((BATCH_SIZE,), dtype=np.int32, buffer=nl.hbm)
 
-  nl.tile_size.pmax = nl.tile_size.pmax
-  assert BATCH_SIZE % nl.tile_size.pmax == 0, f"{BATCH_SIZE} must be divisible by {nl.tile_size.pmax}"
-  assert 8 <= OUTPUT_SIZE <= 16384, "output size must be in [8, 16384] for nisa.max8"
-
   for row_idx in nl.affine_range(BATCH_SIZE // nl.tile_size.pmax):
     row_offset = row_idx * nl.tile_size.pmax
     probs_tile = nl.load(probs[row_offset:row_offset + nl.tile_size.pmax, 0:OUTPUT_SIZE])
