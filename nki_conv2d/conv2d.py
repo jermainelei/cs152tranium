@@ -68,8 +68,7 @@ def conv2d_nki(X, W, bias):
                     # YOUR CODE HERE
                     out_start = c_out_tile_idx * c_out_tile
                     in_start = c_in_tile_idx * c_in_tile
-                    weight_tile = nl.load_2dtranspose(W[out_start:out_start + c_out_tile, in_start:in_start + c_in_tile, i, j])
-                    nl.store(w[:, :, c_out_tile_idx, c_in_tile_idx, i, j], weight_tile)
+                    w[:, :, c_out_tile_idx, c_in_tile_idx, i, j] = nl.load_transpose2d(W[out_start:out_start + c_out_tile, in_start:in_start + c_in_tile, i, j])
 
 
     # Process the images one-by-one
@@ -88,7 +87,7 @@ def conv2d_nki(X, W, bias):
                         for j in nl.affine_range(filter_width):
                             # 1. Select the weight tile for the current input and output channel tiles idx and filter position
                             c_in_offset = c_in_tile_idx * c_in_tile
-                            weight_tile = w[:, :, c_out_tile_idx,c_out_offset, i, j]
+                            weight_tile = w[:, :, c_out_tile_idx, c_in_tile_idx, i, j]
                             # 2. Load the input tile for the current input channel tile idx, output row, filter position
                             input_tile = nl.load(X[img, c_in_offset:c_in_offset + c_in_tile, out_row + i, j:j+out_width])
                             # 3. Matmul the weight tile and input tile, and accumulate the result in row_out
